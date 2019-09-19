@@ -1,6 +1,6 @@
 {
     "name": "Nextcloud",
-    "version": "13.0.1",
+    "version": "latest",
     "slug": "nextcloud",
     "arch": ["armhf", "amd64"],
     "image": "ownyourbits/nextcloud-{arch}",

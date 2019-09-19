@@ -3,7 +3,7 @@
     "version": "13.0.1",
     "slug": "nextcloud",
     "arch": ["armhf", "amd64"],
-    "image": "linuxserver-archive/docker-nextcloud-{arch}.git",
+    "image": "linuxserver-archive/docker-nextcloud-{arch}",
     "description": "Nextcloud addon. Image based on upstream docker images. This is just a wrapper to pass environment variable to the container.",
     "url": "https://github.com/MarkPartlett/hassio-addons/tree/master/nextcloud",
     "startup": "system",

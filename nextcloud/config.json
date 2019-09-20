@@ -3,7 +3,7 @@
     "version": "latest",
     "slug": "nextcloud",
     "arch": ["armhf", "amd64"],
-    "image": "ownyourbits/nextcloudpi",
+    "image": "ownyourbits/nextcloud-{arch}",
     "description": "Nextcloud addon. Image based on upstream docker images. This is just a wrapper to pass environment variable to the container.",
     "url": "https://github.com/MarkPartlett/hassio-addons/tree/master/nextcloud",
     "startup": "system",

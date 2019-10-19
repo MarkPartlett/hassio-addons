@@ -1,30 +1,70 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
-ARG BUILD_ARCH
+# syntax=docker/dockerfile:experimental
 
-COPY qemu-arm-static /usr/bin/qemu-arm-static
-COPY qemu-aarch64-static /usr/bin/qemu-aarch64-static
+ARG arch=armhf
 
-RUN if [ "$BUILD_ARCH" = "armhf" ]; then rm /usr/bin/qemu-aarch64-static;\
-    elif [ "$BUILD_ARCH" = "aarch64" ]; then rm /usr/bin/qemu-arm-static;\
-    else\
-    rm /usr/bin/qemu-aarch64-static;\
-    rm /usr/bin/qemu-arm-static;\
-    fi
+FROM ownyourbits/nextcloud-${arch}
 
-RUN apt-get update \
- && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    		jq \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ~/.cache
+ARG ncp_ver=v0.0.0
 
-RUN sed -i "s|/var/www|/data/www|g" /etc/apache2/sites-enabled/000-default.conf \
- && sed -i "s|/var/www|/data/www|g" /etc/apache2/apache2.conf \
- && sed -i "s|/var/www/html|/data/www/html|g" /entrypoint.sh \
- && sed -i "s|/var/www/html|/data/www/html|g" /usr/src/nextcloud/config/autoconfig.php
+LABEL maintainer="Ignacio Núñez Hernanz <nacho@ownyourbits.com>"
 
-COPY run_addon.sh /
-RUN chmod a+x /run_addon.sh
+SHELL ["/bin/bash", "-c"]
 
-ENTRYPOINT [ "/run_addon.sh" ]
-CMD ["apache2-foreground"]
+ENV DOCKERBUILD 1
+
+RUN mkdir -p /tmp/ncp-build
+COPY bin/             /tmp/ncp-build/bin/
+COPY etc              /tmp/ncp-build/etc/
+COPY ncp.sh update.sh /tmp/ncp-build/
+COPY ncp-web          /tmp/ncp-build/ncp-web/
+COPY ncp-app          /tmp/ncp-build/ncp-app/
+COPY docker           /tmp/ncp-build/docker/
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+
+# make sure we don't accidentally disable first run wizard
+rm -f ncp-web/{wizard.cfg,ncp-web.cfg}; \
+
+# mark as image build
+touch /.ncp-image; \
+
+# mark as docker image
+touch /.docker-image; \
+
+apt-get update; \
+apt-get install --no-install-recommends -y wget ca-certificates; \
+
+# install nextcloudpi
+source /usr/local/etc/library.sh; \
+set +x; \
+cd /tmp/ncp-build/; \
+install_app ncp.sh; \
+
+# fix default paths
+sed -i 's|/media/USBdrive|/data/backups|' /usr/local/etc/ncp-config.d/nc-backup.cfg; \
+sed -i 's|/media/USBdrive|/data/backups|' /usr/local/etc/ncp-config.d/nc-backup-auto.cfg; \
+
+# specific cleanup
+cd /; rm -r /tmp/ncp-build; \
+rm /.ncp-image; \
+
+# cleanup all NCP extras
+source /usr/local/etc/library.sh; \
+find /usr/local/bin/ncp -name '*.sh' | while read l; do cleanup_script $l; done; \
+
+# package clean up
+apt-get autoremove -y; \
+apt-get clean; \
+find /var/lib/apt/lists -type f | xargs rm; \
+find /var/log -type f -exec rm {} \; ; \
+rm -rf /usr/share/man/*; \
+rm -rf /usr/share/doc/*; \
+rm -f /var/log/alternatives.log /var/log/apt/*; \
+rm /var/cache/debconf/*-old; \
+
+# set version
+echo "${ncp_ver}" > /usr/local/etc/ncp-version
+
+COPY docker/nextcloudpi/000ncp /etc/services-enabled.d/
+COPY bin/ncp/CONFIG/nc-init.sh /
+COPY etc/ncp-config.d/nc-init.cfg /usr/local/etc/ncp-config.d/
